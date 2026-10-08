@@ -1,0 +1,195 @@
+//
+//  EditorShot.cpp
+//  FMBox
+//
+//  Builds the plugin headlessly, checks what needs the whole processor, and
+//  paints the panel into a PNG.
+//
+//  - the session round trip: every parameter through getStateInformation
+//    into a fresh processor, with the knobs moved immediately before saving -
+//    which is when a state saved from the tree instead of copyState() comes
+//    back stale;
+//  - every GM note plays its sound, and on the sample the MIDI event names;
+//  - a click on a pad plays that sound.
+//
+//  Look at the PNG after every layout change.
+//
+//  Usage:  EditorShot <output-directory>
+//
+
+#include <juce_gui_basics/juce_gui_basics.h>
+
+#include "PluginEditor.h"
+#include "PluginProcessor.h"
+
+#include <cstdio>
+
+namespace
+{
+    int failures = 0, checks = 0;
+
+    void check (bool condition, const juce::String& what, const juce::String& detail = {})
+    {
+        ++checks;
+
+        if (! condition)
+        {
+            ++failures;
+            std::printf ("FAIL: %s  %s\n", what.toRawUTF8(), detail.toRawUTF8());
+        }
+    }
+
+    void setParam (FMBoxProcessor& processor, const juce::String& id, float value)
+    {
+        auto* parameter = processor.parameters.getParameter (id);
+        jassert (parameter != nullptr);
+        parameter->setValueNotifyingHost (parameter->convertTo0to1 (value));
+    }
+
+    float getParam (FMBoxProcessor& processor, const juce::String& id)
+    {
+        return processor.parameters.getRawParameterValue (id)->load();
+    }
+
+    bool writePng (const juce::Image& image, const juce::File& file)
+    {
+        file.deleteFile();
+        std::unique_ptr<juce::FileOutputStream> stream (file.createOutputStream());
+        juce::PNGImageFormat png;
+        return stream != nullptr && png.writeImageToStream (image, *stream);
+    }
+
+    void pump (int ms)
+    {
+        juce::MessageManager::getInstance()->runDispatchLoopUntil (ms);
+    }
+
+    //==============================================================================
+    void checkStateRoundTrip()
+    {
+        FMBoxProcessor original;
+        original.prepareToPlay (48000.0, 512);
+
+        setParam (original, FmParams::soundId (FmParams::sd, FmParams::Snd::tune), 260.0f);
+        setParam (original, FmParams::soundId (FmParams::bell, FmParams::Snd::tone), 0.8f);
+        setParam (original, FmParams::soundId (FmParams::ch, FmParams::Snd::pan), -0.4f);
+        setParam (original, FmParams::soundId (FmParams::bd, FmParams::Snd::level), -9.0f);
+        setParam (original, FmParams::master, -3.0f);
+
+        juce::MemoryBlock state;
+        original.getStateInformation (state);
+
+        FMBoxProcessor restored;
+        restored.setStateInformation (state.getData(), (int) state.getSize());
+
+        int compared = 0, differing = 0;
+
+        for (auto* parameter : original.getParameters())
+            if (auto* withId = dynamic_cast<juce::AudioProcessorParameterWithID*> (parameter))
+            {
+                ++compared;
+                const auto a = getParam (original, withId->paramID);
+                const auto b = getParam (restored, withId->paramID);
+
+                if (std::abs (a - b) > 1.0e-4f)
+                {
+                    ++differing;
+                    std::printf ("  %s: %f -> %f\n", withId->paramID.toRawUTF8(), a, b);
+                }
+            }
+
+        check (compared == FmParams::numSounds * 6 + 1, "every parameter is in the state", juce::String (compared));
+        check (differing == 0, "the session round trip restores every parameter", juce::String (differing) + " differ");
+    }
+
+    /** First sample in the block above -100 dB, or -1. */
+    int firstSound (const juce::AudioBuffer<float>& buffer)
+    {
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+            if (std::abs (buffer.getSample (0, i)) > 1.0e-5f || std::abs (buffer.getSample (1, i)) > 1.0e-5f)
+                return i;
+        return -1;
+    }
+
+    void checkMidi()
+    {
+        for (int s = 0; s < FmParams::numSounds; ++s)
+        {
+            FMBoxProcessor processor;
+            processor.prepareToPlay (48000.0, 512);
+
+            juce::AudioBuffer<float> buffer (2, 512);
+            juce::MidiBuffer midi;
+            midi.addEvent (juce::MidiMessage::noteOn (10, FmParams::sounds[s].note, (juce::uint8) 127), 300);
+            processor.processBlock (buffer, midi);
+
+            const auto first = firstSound (buffer);
+            const auto name = juce::String (FmParams::sounds[s].name);
+            check (processor.getEngine().getHitCount (s) == 1, name + " plays from note " + juce::String (FmParams::sounds[s].note));
+            check (first >= 300 && first <= 303, name + " starts on the sample the note is on", juce::String (first));
+        }
+
+        FMBoxProcessor processor;
+        processor.prepareToPlay (48000.0, 512);
+        juce::AudioBuffer<float> buffer (2, 512);
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 127), 0);
+        processor.processBlock (buffer, midi);
+        check (firstSound (buffer) < 0, "a note outside the kit plays nothing");
+
+        processor.playSound (FmParams::rim, 0.8f);
+        midi.clear();
+        processor.processBlock (buffer, midi);
+        check (processor.getEngine().getHitCount (FmParams::rim) == 1 && firstSound (buffer) == 0,
+               "a pad click plays its sound at the start of the next block");
+    }
+}
+
+int main (int argc, char** argv)
+{
+    const juce::ScopedJuceInitialiser_GUI juceInitialiser;
+
+    const juce::File outputDirectory = argc > 1 ? juce::File (juce::String (argv[1]))
+                                                : juce::File::getCurrentWorkingDirectory();
+
+    if (! outputDirectory.createDirectory())
+    {
+        std::printf ("FAIL: cannot create %s\n", outputDirectory.getFullPathName().toRawUTF8());
+        return 1;
+    }
+
+    std::printf ("Session round trip...\n");
+    checkStateRoundTrip();
+    std::printf ("MIDI notes and pads...\n");
+    checkMidi();
+
+    // The panel, with a few pads mid-flash.
+    {
+        FMBoxProcessor processor;
+        processor.prepareToPlay (48000.0, 512);
+        setParam (processor, FmParams::soundId (FmParams::ch, FmParams::Snd::pan), -0.3f);
+        setParam (processor, FmParams::soundId (FmParams::oh, FmParams::Snd::pan), 0.3f);
+
+        std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
+        pump (50);
+
+        juce::AudioBuffer<float> buffer (2, 512);
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (10, 36, (juce::uint8) 127), 0);
+        midi.addEvent (juce::MidiMessage::noteOn (10, 42, (juce::uint8) 80), 10);
+        processor.processBlock (buffer, midi);
+
+        pump (60);
+
+        const auto image = editor->createComponentSnapshot (editor->getLocalBounds(), true, 2.0f);
+        const auto file = outputDirectory.getChildFile ("fmbox.png");
+        check (writePng (image, file), "the panel renders to " + file.getFullPathName());
+        std::printf ("Panel: %d x %d\n", editor->getWidth(), editor->getHeight());
+
+        processor.editorBeingDeleted (editor.get());
+        editor.reset();
+    }
+
+    std::printf ("\n%d checks, %d failure(s)\n", checks, failures);
+    return failures == 0 ? 0 : 1;
+}
