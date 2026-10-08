@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 # A version bump makes Logic re-validate the AU; bump it with every change
 # that should reach the host.
-project(FMBox VERSION 0.1.0)
+project(FMBox VERSION 0.2.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -75,9 +75,14 @@ juce_add_plugin(FMBox
 # objects the plugin runs. Testing a reimplementation tests nothing.
 set(FMBOX_CORE_SOURCES
     Source/Engine/FmVoices.cpp
-    Source/Engine/FmDrumEngine.cpp)
+    Source/Engine/FmDrumEngine.cpp
+    Source/Engine/Fx/PlateReverb.cpp
+    Source/Engine/Fx/EffectCatalog.cpp
+    Source/Engine/Fx/EffectBlock.cpp)
 
 set(FMBOX_UI_SOURCES
+    Source/UI/ChoiceButtons.cpp
+    Source/UI/Display.cpp
     Source/UI/Knob.cpp
     Source/UI/PadButton.cpp)
 
@@ -98,6 +103,7 @@ target_compile_definitions(FMBox PUBLIC
 target_link_libraries(FMBox PRIVATE
     daisysp
     juce::juce_audio_utils
+    juce::juce_dsp
     juce::juce_gui_extra
   PUBLIC
     juce::juce_recommended_config_flags
@@ -125,6 +131,7 @@ target_link_libraries(FMBoxCheck PRIVATE
     daisysp
     juce::juce_audio_basics
     juce::juce_audio_formats
+    juce::juce_dsp
   PUBLIC
     juce::juce_recommended_config_flags
     juce::juce_recommended_warning_flags)

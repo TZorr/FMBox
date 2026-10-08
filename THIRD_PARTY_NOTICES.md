@@ -36,6 +36,11 @@ from JUCE, below.
 ## Everything else
 
 The Clap, Tom, Rim and Bell voices, the FM metallic source of the hats, the
-engine (retrigger fades, choke, mix) and the panel are FMBox's own code. The
-knob and the palette are shared with its sibling Kitbox. No other library is
-linked, and nothing is downloaded at build or run time.
+engine (retrigger fades, choke, click, mix) and the panel are FMBox's own code.
+The send effects (`Source/Engine/Fx`), the drive's soft clipper, the knob and
+the palette are shared with its siblings Kitbox and Rackbox; the type buttons
+with Rackbox Plus. The drive's antiderivative anti-aliasing and the frequency
+shifter follow ideas published in Signalsmith Audio's open-source DSP, but
+were written independently: no code or tuned constants were copied; the
+shifter's Hilbert allpass is designed by `Scripts/HilbertDesign.cpp`. No other
+library is linked, and nothing is downloaded at build or run time.

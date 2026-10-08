@@ -75,6 +75,10 @@ namespace
         setParam (original, FmParams::soundId (FmParams::ch, FmParams::Snd::pan), -0.4f);
         setParam (original, FmParams::soundId (FmParams::bd, FmParams::Snd::level), -9.0f);
         setParam (original, FmParams::master, -3.0f);
+        setParam (original, FmParams::soundId (FmParams::tom, FmParams::Snd::drive), 0.6f);
+        setParam (original, FmParams::soundId (FmParams::rim, FmParams::Snd::delay), 0.4f);
+        setParam (original, FmParams::Fx::ids[FmParams::Fx::reverb].type, 2.0f);
+        setParam (original, FmParams::Fx::ids[FmParams::Fx::mod].b, 0.25f);
 
         juce::MemoryBlock state;
         original.getStateInformation (state);
@@ -98,7 +102,8 @@ namespace
                 }
             }
 
-        check (compared == FmParams::numSounds * 6 + 1, "every parameter is in the state", juce::String (compared));
+        check (compared == FmParams::numSounds * FmParams::Snd::count + FmParams::Fx::numSlots * 4 + 1,
+               "every parameter is in the state", juce::String (compared));
         check (differing == 0, "the session round trip restores every parameter", juce::String (differing) + " differ");
     }
 
@@ -169,6 +174,10 @@ int main (int argc, char** argv)
         processor.prepareToPlay (48000.0, 512);
         setParam (processor, FmParams::soundId (FmParams::ch, FmParams::Snd::pan), -0.3f);
         setParam (processor, FmParams::soundId (FmParams::oh, FmParams::Snd::pan), 0.3f);
+        setParam (processor, FmParams::soundId (FmParams::bd, FmParams::Snd::drive), 0.35f);
+        setParam (processor, FmParams::soundId (FmParams::bd, FmParams::Snd::click), 0.4f);
+        setParam (processor, FmParams::soundId (FmParams::rim, FmParams::Snd::delay), 0.3f);
+        setParam (processor, FmParams::Fx::ids[FmParams::Fx::reverb].type, 1.0f);   // Room
 
         std::unique_ptr<juce::AudioProcessorEditor> editor (processor.createEditorAndMakeActive());
         pump (50);

@@ -2,7 +2,7 @@
 //  PluginProcessor.h
 //  FMBox
 //
-//  Eight FM drums on the GM drum notes, one stereo output.
+//  Eight FM drums on the GM drum notes, three send effects, one stereo output.
 //
 //  The state is the parameter tree and nothing else: no samples, no files, no
 //  kit format. A session or an .aupreset restores the kit completely.
@@ -35,7 +35,7 @@ public:
     bool acceptsMidi() const override  { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 3.0; }
+    double getTailLengthSeconds() const override { return 6.0; }   // a hall on the bell
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -58,18 +58,20 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout makeParameterLayout();
     void applyParameters();
 
-    struct SoundParams
+    /** A sound's parameters, in FmParams::Snd::all order. */
+    using SoundParams = std::array<std::atomic<float>*, FmParams::Snd::count>;
+
+    struct FxParams
     {
-        std::atomic<float>* tune = nullptr;
-        std::atomic<float>* decay = nullptr;
-        std::atomic<float>* fm = nullptr;
-        std::atomic<float>* tone = nullptr;
+        std::atomic<float>* type = nullptr;
+        std::atomic<float>* a = nullptr;
+        std::atomic<float>* b = nullptr;
         std::atomic<float>* level = nullptr;
-        std::atomic<float>* pan = nullptr;
     };
 
     FmDrumEngine engine;
-    std::array<SoundParams, FmParams::numSounds> soundParams;
+    std::array<SoundParams, FmParams::numSounds> soundParams {};
+    std::array<FxParams, FmParams::Fx::numSlots> fxParams {};
     std::atomic<float>* masterParam = nullptr;
     std::array<std::atomic<float>, FmParams::numSounds> pendingHits;
 

@@ -51,6 +51,13 @@ namespace Palette
         return colours[sound & 7];
     }
 
+    /** The send effects' dots: reverb orange, delay green, mod red. */
+    inline juce::Colour fxColour (int slot)
+    {
+        static const juce::Colour colours[] = { juce::Colour (0xfff7941d), juce::Colour (0xff62b96a), juce::Colour (0xffe04a4f) };
+        return colours[slot % 3];
+    }
+
     inline juce::Font label (float height = 10.5f)
     {
         return juce::Font (juce::FontOptions (height, juce::Font::bold)).withExtraKerningFactor (0.08f);

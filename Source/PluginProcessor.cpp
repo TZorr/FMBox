@@ -50,14 +50,17 @@ FMBoxProcessor::FMBoxProcessor()
 
     for (int s = 0; s < numSounds; ++s)
     {
-        auto& p = soundParams[(size_t) s];
-        p.tune  = parameters.getRawParameterValue (soundId (s, Snd::tune));
-        p.decay = parameters.getRawParameterValue (soundId (s, Snd::decay));
-        p.fm    = parameters.getRawParameterValue (soundId (s, Snd::fm));
-        p.tone  = parameters.getRawParameterValue (soundId (s, Snd::tone));
-        p.level = parameters.getRawParameterValue (soundId (s, Snd::level));
-        p.pan   = parameters.getRawParameterValue (soundId (s, Snd::pan));
+        for (int k = 0; k < Snd::count; ++k)
+            soundParams[(size_t) s][(size_t) k] = parameters.getRawParameterValue (soundId (s, Snd::all[k]));
+
         pendingHits[(size_t) s].store (0.0f);
+    }
+
+    for (int f = 0; f < Fx::numSlots; ++f)
+    {
+        const auto& ids = Fx::ids[f];
+        fxParams[(size_t) f] = { parameters.getRawParameterValue (ids.type), parameters.getRawParameterValue (ids.a),
+                                 parameters.getRawParameterValue (ids.b), parameters.getRawParameterValue (ids.level) };
     }
 
     masterParam = parameters.getRawParameterValue (master);
@@ -67,8 +70,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout FMBoxProcessor::makeParamete
 {
     using namespace FmParams;
     using Attributes = juce::AudioParameterFloatAttributes;
+    using TextFunction = std::function<juce::String (float, int)>;
 
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
+
+    const TextFunction percentText = [] (float v, int) { return percent (v); };
+    const TextFunction dbText      = [] (float v, int) { return decibels (v); };
+
+    juce::NormalisableRange<float> levelRange (minLevelDb, maxLevelDb);
+    levelRange.setSkewForCentre (-12.0f);
+
+    const juce::NormalisableRange<float> unit (0.0f, 1.0f);
 
     for (int s = 0; s < numSounds; ++s)
     {
@@ -76,57 +88,76 @@ juce::AudioProcessorValueTreeState::ParameterLayout FMBoxProcessor::makeParamete
         const juce::String name (spec.name);
         auto group = std::make_unique<juce::AudioProcessorParameterGroup> (spec.key, name, " | ");
 
-        const auto id = [s] (const char* suffix) { return juce::ParameterID { soundId (s, suffix), stateVersion }; };
-
-        group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            id (Snd::tune), name + " Tune", tuneRange (spec), spec.tune,
-            Attributes().withStringFromValueFunction ([] (float v, int) { return hz (v); })));
-
-        group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            id (Snd::decay), name + " Decay", juce::NormalisableRange<float> (0.0f, 1.0f), spec.decay,
-            Attributes().withStringFromValueFunction ([] (float v, int) { return percent (v); })));
-
-        group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            id (Snd::fm), name + " FM", juce::NormalisableRange<float> (0.0f, 1.0f), spec.fm,
-            Attributes().withStringFromValueFunction ([] (float v, int) { return percent (v); })));
+        // Version hint 1 for the parameters of 0.1.0, 2 for those added in
+        // 0.2.0: hosts use the hint to keep the order of older ones stable.
+        const auto add = [&] (const char* suffix, const juce::String& label, juce::NormalisableRange<float> range,
+                              float value, const TextFunction& text, int version)
+        {
+            group->addChild (std::make_unique<juce::AudioParameterFloat> (
+                juce::ParameterID { soundId (s, suffix), version }, name + " " + label, range, value,
+                Attributes().withStringFromValueFunction (text)));
+        };
 
         // The Bell's fourth knob is a ratio and says so.
-        auto toneText = s == bell ? std::function<juce::String (float, int)> ([] (float v, int) { return juce::String::charToString (0x00d7) + juce::String (bellRatio (v), 2); })
-                                  : std::function<juce::String (float, int)> ([] (float v, int) { return percent (v); });
+        const auto toneText = s == bell ? TextFunction ([] (float v, int) { return juce::String::charToString (0x00d7) + juce::String (bellRatio (v), 2); })
+                                        : percentText;
 
-        group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            id (Snd::tone), name + " " + spec.toneLabel, juce::NormalisableRange<float> (0.0f, 1.0f), spec.tone,
-            Attributes().withStringFromValueFunction (toneText)));
-
-        juce::NormalisableRange<float> levelRange (minLevelDb, maxLevelDb);
-        levelRange.setSkewForCentre (-12.0f);
-
-        group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            id (Snd::level), name + " Level", levelRange, 0.0f,
-            Attributes().withStringFromValueFunction ([] (float v, int) { return decibels (v); })));
-
-        group->addChild (std::make_unique<juce::AudioParameterFloat> (
-            id (Snd::pan), name + " Pan", juce::NormalisableRange<float> (-1.0f, 1.0f), 0.0f,
-            Attributes().withStringFromValueFunction ([] (float v, int) { return panText (v); })));
+        add (Snd::tune,     "Tune",        tuneRange (spec), spec.tune, [] (float v, int) { return hz (v); }, 1);
+        add (Snd::decay,    "Decay",       unit, spec.decay, percentText, 1);
+        add (Snd::fm,       "FM",          unit, spec.fm,    percentText, 1);
+        add (Snd::tone,     spec.toneLabel, unit, spec.tone, toneText, 1);
+        add (Snd::level,    "Level",       levelRange, 0.0f, dbText, 1);
+        add (Snd::pan,      "Pan",         { -1.0f, 1.0f }, 0.0f, [] (float v, int) { return panText (v); }, 1);
+        add (Snd::drive,    "Drive",       unit, 0.0f, percentText, 2);
+        add (Snd::click,    "Click",       unit, 0.0f, percentText, 2);
+        add (Snd::velocity, "Velocity",    unit, 1.0f, percentText, 2);
+        add (Snd::reverb,   "Reverb Send", unit, spec.reverb, percentText, 2);
+        add (Snd::delay,    "Delay Send",  unit, 0.0f, percentText, 2);
+        add (Snd::mod,      "Mod Send",    unit, 0.0f, percentText, 2);
 
         layout.add (std::move (group));
     }
 
-    juce::NormalisableRange<float> masterRange (minLevelDb, maxLevelDb);
-    masterRange.setSkewForCentre (-12.0f);
+    // The send effects: Type, the effect's two knobs, the return level. A and
+    // B mean whatever the loaded effect calls them (EffectCatalog), so here
+    // they are plain 0..1 - the panel prints them in the effect's own units.
+    auto fxGroup = std::make_unique<juce::AudioProcessorParameterGroup> ("fx", "Effects", " | ");
+
+    for (int f = 0; f < Fx::numSlots; ++f)
+    {
+        const auto& ids = Fx::ids[f];
+        const juce::String title (Fx::titles[f]);
+        const auto category = Fx::categories[f];
+
+        juce::StringArray types;
+        for (int t = 0; t < EffectCatalog::numSubtypes (category); ++t)
+            types.add (EffectCatalog::info (category, t).name);
+
+        fxGroup->addChild (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ids.type, 2 }, title + " Type", types, Fx::defaultTypes[f]));
+
+        fxGroup->addChild (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ids.a, 2 }, title + " A", unit, Fx::defaultA[f], Attributes().withStringFromValueFunction (percentText)));
+        fxGroup->addChild (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ids.b, 2 }, title + " B", unit, Fx::defaultB[f], Attributes().withStringFromValueFunction (percentText)));
+        fxGroup->addChild (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { ids.level, 2 }, title + " Level", levelRange, 0.0f, Attributes().withStringFromValueFunction (dbText)));
+    }
+
+    layout.add (std::move (fxGroup));
 
     layout.add (std::make_unique<juce::AudioParameterFloat> (
-        juce::ParameterID { master, stateVersion }, "Master", masterRange, 0.0f,
-        Attributes().withStringFromValueFunction ([] (float v, int) { return decibels (v); })));
+        juce::ParameterID { master, stateVersion }, "Master", levelRange, 0.0f,
+        Attributes().withStringFromValueFunction (dbText)));
 
     return layout;
 }
 
 //==============================================================================
-void FMBoxProcessor::prepareToPlay (double sampleRate, int)
+void FMBoxProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     applyParameters();
-    engine.prepare (sampleRate);
+    engine.prepare (sampleRate, juce::jmax (1, samplesPerBlock));
 }
 
 bool FMBoxProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -137,14 +168,37 @@ bool FMBoxProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 
 void FMBoxProcessor::applyParameters()
 {
-    for (int s = 0; s < FmParams::numSounds; ++s)
+    using namespace FmParams;
+
+    for (int s = 0; s < numSounds; ++s)
     {
         const auto& p = soundParams[(size_t) s];
-        engine.setControls (s, { p.tune->load(), p.decay->load(), p.fm->load(), p.tone->load() },
-                            FmParams::levelToGain (p.level->load()), p.pan->load());
+        const auto get = [&p] (const char* suffix)
+        {
+            for (int k = 0; k < Snd::count; ++k)
+                if (Snd::all[k] == suffix)
+                    return p[(size_t) k]->load();
+            return 0.0f;
+        };
+
+        FmDrumEngine::SoundSettings settings;
+        settings.controls = { get (Snd::tune), get (Snd::decay), get (Snd::fm), get (Snd::tone) };
+        settings.drive    = get (Snd::drive);
+        settings.click    = get (Snd::click);
+        settings.velocity = get (Snd::velocity);
+        settings.gain     = levelToGain (get (Snd::level));
+        settings.pan      = get (Snd::pan);
+        settings.sends    = { get (Snd::reverb), get (Snd::delay), get (Snd::mod) };
+        engine.setSound (s, settings);
     }
 
-    engine.setMaster (FmParams::levelToGain (masterParam->load()));
+    for (int f = 0; f < Fx::numSlots; ++f)
+    {
+        const auto& p = fxParams[(size_t) f];
+        engine.setFx (f, { (int) std::lround (p.type->load()), p.a->load(), p.b->load(), levelToGain (p.level->load()) });
+    }
+
+    engine.setMaster (levelToGain (masterParam->load()));
 }
 
 void FMBoxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
@@ -158,6 +212,11 @@ void FMBoxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     }
 
     applyParameters();
+
+    if (auto* playHead = getPlayHead())
+        if (auto position = playHead->getPosition())
+            if (auto bpm = position->getBpm())
+                engine.setTempo (*bpm);
 
     for (int s = 0; s < FmParams::numSounds; ++s)
         if (const auto velocity = pendingHits[(size_t) s].exchange (0.0f); velocity > 0.0f)
