@@ -213,7 +213,7 @@ void FMBoxEditor::paint (juce::Graphics& g)
         g.setColour (Palette::section);
         g.fillRoundedRectangle (area.toFloat(), 6.0f);
 
-        const auto y = (float) (area.getY() + 10 + padHeight + 8 + 3 * knobRowHeight + groupGap / 2);
+        const auto y = (float) (area.getY() + 10 + 3 * knobRowHeight + groupGap / 2);
         g.setColour (Palette::sectionLine);
         g.drawHorizontalLine ((int) y, (float) area.getX() + 12.0f, (float) area.getRight() - 12.0f);
     }
@@ -248,39 +248,7 @@ void FMBoxEditor::resized()
 
     area.removeFromTop (gap);
 
-    // The sound columns.
-    {
-        auto row = area.removeFromTop (columnHeight);
-
-        for (int s = 0; s < FmParams::numSounds; ++s)
-        {
-            auto column = row.removeFromLeft (columnWidth);
-            row.removeFromLeft (6);
-            columnAreas[(size_t) s] = column;
-
-            auto inner = column.reduced (9, 0);
-            inner.removeFromTop (10);
-
-            auto& c = columns[(size_t) s];
-            c.pad->setBounds (inner.removeFromTop (padHeight));
-            inner.removeFromTop (8);
-
-            for (int r = 0; r < 6; ++r)
-            {
-                if (r == 3)
-                    inner.removeFromTop (groupGap);
-
-                auto line = inner.removeFromTop (knobRowHeight);
-                const auto half = line.getWidth() / 2;
-                c.knobs[(size_t) r * 2]    ->setBounds (line.removeFromLeft (half));
-                c.knobs[(size_t) r * 2 + 1]->setBounds (line);
-            }
-        }
-    }
-
-    area.removeFromTop (gap);
-
-    // The send effects.
+    // The send effects, right under the display.
     {
         auto row = area.removeFromTop (fxHeight);
         const auto width = (row.getWidth() - 2 * gap) / 3;
@@ -303,6 +271,44 @@ void FMBoxEditor::resized()
             f.a.setBounds (knobs.removeFromLeft (cell));
             f.b.setBounds (knobs.removeFromLeft (cell));
             f.level.setBounds (knobs);
+        }
+    }
+
+    area.removeFromTop (gap);
+
+    // The sound columns: the sound's knobs, the sends, Level / Pan and the
+    // pad at the bottom, where a hand reaches for it first.
+    {
+        // Pairs of indices into FmParams::Snd::all, top to bottom.
+        static constexpr int rows[6][2] = { { 0, 1 }, { 2, 3 }, { 4, 5 },      // Tune Decay, FM Tone, Drive Click
+                                            { 8, 9 }, { 10, 11 }, { 6, 7 } };  // Reverb Delay, Mod Velo, Level Pan
+
+        auto row = area.removeFromTop (columnHeight);
+
+        for (int s = 0; s < FmParams::numSounds; ++s)
+        {
+            auto column = row.removeFromLeft (columnWidth);
+            row.removeFromLeft (6);
+            columnAreas[(size_t) s] = column;
+
+            auto inner = column.reduced (9, 0);
+            inner.removeFromTop (10);
+
+            auto& c = columns[(size_t) s];
+
+            for (int r = 0; r < 6; ++r)
+            {
+                if (r == 3)
+                    inner.removeFromTop (groupGap);
+
+                auto line = inner.removeFromTop (knobRowHeight);
+                const auto half = line.getWidth() / 2;
+                c.knobs[(size_t) rows[r][0]]->setBounds (line.removeFromLeft (half));
+                c.knobs[(size_t) rows[r][1]]->setBounds (line);
+            }
+
+            inner.removeFromTop (8);
+            c.pad->setBounds (inner.removeFromTop (padHeight));
         }
     }
 

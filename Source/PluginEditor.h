@@ -5,10 +5,11 @@
 //  Rackbox Plus's frame around FMBox:
 //
 //      FMBOX wordmark | display: last hit + send effects | OUTPUT (master)
-//      eight sound columns: the pad, then two knobs a row -
-//          Tune / Decay, FM / Tone, Drive / Click      the sound
-//          Level / Pan, Reverb / Delay, Mod / Velo     the mix
 //      REVERB | DELAY | MOD: type buttons, the effect's two knobs, Level
+//      eight sound columns, two knobs a row, the pad at the bottom -
+//          Tune / Decay, FM / Tone, Drive / Click      the sound
+//          Reverb / Delay, Mod / Velo, Level / Pan     the mix
+//          the pad
 //      footer
 //
 //  Every knob of every sound is on screen at once: no page, no selection.
