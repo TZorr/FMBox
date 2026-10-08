@@ -53,13 +53,11 @@ namespace FmParams
     /** The Bell's Tone knob is the modulator ratio, 1.0 .. 4.0. */
     inline float bellRatio (float tone) { return 1.0f + 3.0f * tone; }
 
-    /** The sound a MIDI note plays, or -1. */
-    inline int soundForNote (int note)
+    /** "C1" for 36 - Logic's convention, middle C = C3. */
+    inline juce::String noteName (int note)
     {
-        for (int s = 0; s < numSounds; ++s)
-            if (sounds[s].note == note)
-                return s;
-        return -1;
+        static const char* const names[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+        return juce::String (names[note % 12]) + juce::String (note / 12 - 2);
     }
 
     //==============================================================================
@@ -86,6 +84,10 @@ namespace FmParams
                                                level, pan, reverb, delay, mod, velocity };
 
         constexpr int count = 12;
+
+        //  Added in 0.3.0 (version hint 3): the MIDI note that plays the
+        //  sound, GM by default, changed by Learn. Not a knob, so not in all[].
+        inline constexpr const char* note = "note";
     }
 
     /** "sd_decay" for the snare. */

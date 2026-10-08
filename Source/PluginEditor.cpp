@@ -154,6 +154,8 @@ void FMBoxEditor::refreshFx()
 
 void FMBoxEditor::timerCallback()
 {
+    fmProcessor.applyLearnedNote();
+
     for (auto& column : columns)
         column.pad->updateFlash();
 
@@ -223,7 +225,7 @@ void FMBoxEditor::paint (juce::Graphics& g)
 
     g.setColour (Palette::inkDim);
     g.setFont (Palette::label (9.0f));
-    g.drawText (utf8 ("FMBOX " JucePlugin_VersionString "   \xc2\xb7   GM NOTES C1 \xe2\x80\x93 G#2   \xc2\xb7   CLICK A PAD TO HEAR IT, HIGHER IS LOUDER"
+    g.drawText (utf8 ("FMBOX " JucePlugin_VersionString "   \xc2\xb7   CLICK A PAD TO SELECT AND HEAR IT   \xc2\xb7   LEARN: PICK A PAD, PRESS LEARN, PLAY A KEY"
                       "   \xc2\xb7   SENDS ARE POST-LEVEL, PRE-PAN   \xc2\xb7   CLOSED HAT CHOKES OPEN HAT"),
                 footerArea, juce::Justification::centredLeft);
 }

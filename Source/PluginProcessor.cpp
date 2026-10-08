@@ -53,6 +53,8 @@ FMBoxProcessor::FMBoxProcessor()
         for (int k = 0; k < Snd::count; ++k)
             soundParams[(size_t) s][(size_t) k] = parameters.getRawParameterValue (soundId (s, Snd::all[k]));
 
+        noteParams[(size_t) s] = parameters.getRawParameterValue (soundId (s, Snd::note));
+
         pendingHits[(size_t) s].store (0.0f);
     }
 
@@ -114,6 +116,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout FMBoxProcessor::makeParamete
         add (Snd::reverb,   "Reverb Send", unit, spec.reverb, percentText, 2);
         add (Snd::delay,    "Delay Send",  unit, 0.0f, percentText, 2);
         add (Snd::mod,      "Mod Send",    unit, 0.0f, percentText, 2);
+
+        group->addChild (std::make_unique<juce::AudioParameterInt> (
+            juce::ParameterID { soundId (s, Snd::note), 3 }, name + " Note", 0, 127, spec.note,
+            juce::AudioParameterIntAttributes().withStringFromValueFunction ([] (int v, int) { return noteName (v) + " " + juce::String (v); })));
 
         layout.add (std::move (group));
     }
@@ -230,6 +236,10 @@ void FMBoxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     // sample the host put it on.
     int rendered = 0;
 
+    std::array<int, FmParams::numSounds> notes {};
+    for (int s = 0; s < FmParams::numSounds; ++s)
+        notes[(size_t) s] = getSoundNote (s);
+
     for (const auto metadata : midi)
     {
         const auto message = metadata.getMessage();
@@ -245,7 +255,16 @@ void FMBoxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
             rendered = position;
         }
 
-        engine.trigger (FmParams::soundForNote (message.getNoteNumber()), message.getFloatVelocity());
+        const auto note = message.getNoteNumber();
+
+        // Learn takes the note for the sound that asked, and the note still
+        // plays whatever it played - hearing the key is the confirmation.
+        if (const auto learning = learnSound.exchange (-1); learning >= 0)
+            learnedAssignment.store ((learning << 8) | note);
+
+        for (int s = 0; s < FmParams::numSounds; ++s)
+            if (notes[(size_t) s] == note)
+                engine.trigger (s, message.getFloatVelocity());
     }
 
     if (numSamples > rendered)
@@ -253,6 +272,44 @@ void FMBoxProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
 
     for (int ch = 2; ch < buffer.getNumChannels(); ++ch)
         buffer.clear (ch, 0, numSamples);
+}
+
+int FMBoxProcessor::getSoundNote (int sound) const
+{
+    return (int) std::lround (noteParams[(size_t) sound]->load());
+}
+
+void FMBoxProcessor::startLearn (int sound)
+{
+    learnedAssignment.store (-1);
+    learnSound.store (juce::jlimit (0, FmParams::numSounds - 1, sound));
+}
+
+void FMBoxProcessor::applyLearnedNote()
+{
+    const auto learned = learnedAssignment.exchange (-1);
+
+    if (learned < 0)
+        return;
+
+    const auto sound = learned >> 8, note = learned & 0x7f;
+    const auto previous = getSoundNote (sound);
+
+    const auto setNote = [this] (int s, int n)
+    {
+        auto* parameter = parameters.getParameter (FmParams::soundId (s, FmParams::Snd::note));
+        parameter->beginChangeGesture();
+        parameter->setValueNotifyingHost (parameter->convertTo0to1 ((float) n));
+        parameter->endChangeGesture();
+    };
+
+    // Whoever had the note takes this sound's old one: every sound stays
+    // playable and no note plays two.
+    for (int s = 0; s < FmParams::numSounds; ++s)
+        if (s != sound && getSoundNote (s) == note)
+            setNote (s, previous);
+
+    setNote (sound, note);
 }
 
 void FMBoxProcessor::playSound (int sound, float velocity)

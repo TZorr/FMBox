@@ -12,10 +12,22 @@ PadButton::PadButton (FMBoxProcessor& processorToUse, int soundIndex)
 {
     setRepaintsOnMouseActivity (true);
     lastHitCount = processor.getEngine().getHitCount (sound);
+    shownNote = processor.getSoundNote (sound);
+    selected = processor.getSelectedSound() == sound;
 }
 
 void PadButton::updateFlash()
 {
+    const auto note = processor.getSoundNote (sound);
+    const auto isSelected = processor.getSelectedSound() == sound;
+
+    if (note != shownNote || isSelected != selected)
+    {
+        shownNote = note;
+        selected = isSelected;
+        repaint();
+    }
+
     const auto hits = processor.getEngine().getHitCount (sound);
 
     if (hits != lastHitCount)
@@ -35,7 +47,14 @@ void PadButton::mouseDown (const juce::MouseEvent& event)
 {
     const auto height = juce::jmax (1, getHeight());
     const auto velocity = 1.0f - 0.67f * juce::jlimit (0.0f, 1.0f, (float) event.y / (float) height);
+    processor.setSelectedSound (sound);
+
+    // While Learn waits, a click on another pad hands the wait over to it.
+    if (processor.getLearnSound() >= 0)
+        processor.startLearn (sound);
+
     processor.playSound (sound, velocity);
+    updateFlash();
 }
 
 void PadButton::paint (juce::Graphics& g)
@@ -59,6 +78,12 @@ void PadButton::paint (juce::Graphics& g)
         g.fillRect (bounds.withHeight (4.0f));
     }
 
+    if (selected)
+    {
+        g.setColour (Palette::accent);
+        g.drawRoundedRectangle (bounds.reduced (1.0f), 6.0f, 2.0f);
+    }
+
     auto text = bounds.reduced (10.0f, 8.0f);
     text.removeFromTop (4.0f);
 
@@ -71,6 +96,5 @@ void PadButton::paint (juce::Graphics& g)
 
     g.setFont (Palette::mono (10.5f));
     g.setColour (dark ? Palette::pad : Palette::padTextDim);
-    const auto note = juce::MidiMessage::getMidiNoteName (spec.note, true, true, 3) + "  " + juce::String (spec.note);
-    g.drawText (note, text, juce::Justification::bottomLeft);
+    g.drawText (FmParams::noteName (shownNote) + "  " + juce::String (shownNote), text, juce::Justification::bottomLeft);
 }

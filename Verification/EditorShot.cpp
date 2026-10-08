@@ -79,6 +79,7 @@ namespace
         setParam (original, FmParams::soundId (FmParams::rim, FmParams::Snd::delay), 0.4f);
         setParam (original, FmParams::Fx::ids[FmParams::Fx::reverb].type, 2.0f);
         setParam (original, FmParams::Fx::ids[FmParams::Fx::mod].b, 0.25f);
+        setParam (original, FmParams::soundId (FmParams::bell, FmParams::Snd::note), 60.0f);
 
         juce::MemoryBlock state;
         original.getStateInformation (state);
@@ -102,7 +103,7 @@ namespace
                 }
             }
 
-        check (compared == FmParams::numSounds * FmParams::Snd::count + FmParams::Fx::numSlots * 4 + 1,
+        check (compared == FmParams::numSounds * (FmParams::Snd::count + 1) + FmParams::Fx::numSlots * 4 + 1,
                "every parameter is in the state", juce::String (compared));
         check (differing == 0, "the session round trip restores every parameter", juce::String (differing) + " differ");
     }
@@ -150,6 +151,55 @@ namespace
     }
 }
 
+namespace
+{
+    /** One block with one note-on at sample 0. */
+    void playNote (FMBoxProcessor& processor, int note)
+    {
+        juce::AudioBuffer<float> buffer (2, 512);
+        juce::MidiBuffer midi;
+        midi.addEvent (juce::MidiMessage::noteOn (1, note, (juce::uint8) 100), 0);
+        processor.processBlock (buffer, midi);
+    }
+
+    void checkLearn()
+    {
+        using namespace FmParams;
+
+        FMBoxProcessor processor;
+        processor.prepareToPlay (48000.0, 512);
+
+        // A free note: the tom takes 60, nobody else changes.
+        processor.setSelectedSound (tom);
+        processor.startLearn (processor.getSelectedSound());
+        check (processor.getLearnSound() == tom, "Learn waits for the selected pad");
+        playNote (processor, 60);
+        processor.applyLearnedNote();
+        check (processor.getLearnSound() < 0, "Learn stops after one note");
+        check (processor.getSoundNote (tom) == 60, "the tom learns note 60", juce::String (processor.getSoundNote (tom)));
+        check (processor.getEngine().getHitCount (tom) == 0, "the learning note still plays only what it played before");
+
+        // A taken note: kick and snare swap.
+        processor.startLearn (bd);
+        playNote (processor, 38);
+        processor.applyLearnedNote();
+        check (processor.getSoundNote (bd) == 38 && processor.getSoundNote (sd) == 36, "learning the snare's note swaps kick and snare",
+               juce::String (processor.getSoundNote (bd)) + " / " + juce::String (processor.getSoundNote (sd)));
+
+        const auto kickHits = processor.getEngine().getHitCount (bd), snareHits = processor.getEngine().getHitCount (sd);
+        playNote (processor, 38);
+        check (processor.getEngine().getHitCount (bd) == kickHits + 1 && processor.getEngine().getHitCount (sd) == snareHits,
+               "note 38 now plays the kick, not the snare");
+
+        // Cancelled: a note changes nothing.
+        processor.startLearn (rim);
+        processor.cancelLearn();
+        playNote (processor, 72);
+        processor.applyLearnedNote();
+        check (processor.getSoundNote (rim) == sounds[rim].note, "a cancelled Learn changes nothing");
+    }
+}
+
 int main (int argc, char** argv)
 {
     const juce::ScopedJuceInitialiser_GUI juceInitialiser;
@@ -167,6 +217,8 @@ int main (int argc, char** argv)
     checkStateRoundTrip();
     std::printf ("MIDI notes and pads...\n");
     checkMidi();
+    std::printf ("Learn...\n");
+    checkLearn();
 
     // The panel, with a few pads mid-flash.
     {
@@ -187,6 +239,10 @@ int main (int argc, char** argv)
         midi.addEvent (juce::MidiMessage::noteOn (10, 36, (juce::uint8) 127), 0);
         midi.addEvent (juce::MidiMessage::noteOn (10, 42, (juce::uint8) 80), 10);
         processor.processBlock (buffer, midi);
+
+        // Then Learn waiting on the bell, so the panel shows that state.
+        processor.setSelectedSound (FmParams::bell);
+        processor.startLearn (FmParams::bell);
 
         pump (60);
 

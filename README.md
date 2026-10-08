@@ -20,7 +20,11 @@ Sibling of [Kitbox](https://github.com/TZorr/Kitbox) (16-pad sampler) and
 | Rim        | C#1 37  | PM pair, ratio 2.27, low body, noise click    | Click     |
 | Bell       | G#2 56  | two PM pairs 1.48 apart - cowbell to bell     | Ratio     |
 
-Notes follow the GM drum map (C1 = 36, as Logic counts). Every sound has
+Notes start on the GM drum map (C1 = 36, as Logic counts). To change one,
+click the pad (it is selected and plays), press **LEARN** top right in the
+display and play a key: that key becomes the pad's note. If another sound had
+it, the two swap, so every sound stays playable. The notes are saved with the
+session. Every sound has
 **Tune** (Hz), **Decay**, **FM** and its **Tone** knob; **Drive** (Kitbox's
 soft clipper, anti-aliased), **Click** (a few milliseconds of noise and a
 3.5 kHz blip on top of the hit); **Level**, **Pan**, sends to **Reverb**,

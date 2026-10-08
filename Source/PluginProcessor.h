@@ -52,6 +52,25 @@ public:
 
     const FmDrumEngine& getEngine() const noexcept { return engine; }
 
+    /** The MIDI note that plays the sound. */
+    int getSoundNote (int sound) const;
+
+    /** The pad last clicked: what Learn assigns a note to. Not saved. */
+    int getSelectedSound() const noexcept       { return selectedSound.load(); }
+    void setSelectedSound (int sound) noexcept  { selectedSound.store (juce::jlimit (0, FmParams::numSounds - 1, sound)); }
+
+    /** MIDI Learn: the next note-on the plugin receives becomes this sound's
+        note. If another sound had that note, the two swap. The note is taken
+        on the audio thread and written to the parameters on the message thread
+        by applyLearnedNote(). */
+    void startLearn (int sound);
+    void cancelLearn()                 { learnSound.store (-1); }
+    int getLearnSound() const noexcept { return learnSound.load(); }
+
+    /** Message thread (the editor's timer). Applies a note the audio thread
+        has learnt; public so tests need not wait for a timer. */
+    void applyLearnedNote();
+
     juce::AudioProcessorValueTreeState parameters;
 
 private:
@@ -72,7 +91,9 @@ private:
     FmDrumEngine engine;
     std::array<SoundParams, FmParams::numSounds> soundParams {};
     std::array<FxParams, FmParams::Fx::numSlots> fxParams {};
+    std::array<std::atomic<float>*, FmParams::numSounds> noteParams {};
     std::atomic<float>* masterParam = nullptr;
+    std::atomic<int> selectedSound { 0 }, learnSound { -1 }, learnedAssignment { -1 };   // (sound << 8) | note
     std::array<std::atomic<float>, FmParams::numSounds> pendingHits;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FMBoxProcessor)
