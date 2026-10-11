@@ -4,8 +4,22 @@ An eight-sound FM drum synth for macOS - AU (aumu/Fmbx/Tzor), VST3 and a
 standalone app, built with JUCE 9. Twelve knobs per sound, Kitbox's three send
 effects and a master level - every knob on screen at once.
 
-Sibling of [Kitbox](https://github.com/TZorr/Kitbox) (16-pad sampler) and
-[Transmute](https://github.com/TZorr/Transmute) (drum resynthesis).
+Family: [Kitbox](https://github.com/TZorr/Kitbox) (16-pad drum sampler), [Rackbox](https://github.com/TZorr/Rackbox) (four-slot multi-effect), [Rackbox Plus](https://github.com/TZorr/RackboxPlus) (the same rack, eight knobs per effect), [Chordbox](https://github.com/TZorr/Chordbox) (16-pad chord generator), [Transmute](https://github.com/TZorr/Transmute) (drum resynthesis).
+
+<img src="screenshot.png" width="700" alt="FMBox in Logic Pro">
+
+<img src="screenshot-dark.png" width="700" alt="FMBox in Logic Pro with the dark panel">
+
+**Dark** under the wordmark switches the panel to dark; the choice is yours,
+not the session's - every FMBox window and project opens the way you left it.
+
+## Install
+
+Download `FMBox.0.3.1.pkg` from
+[Releases](https://github.com/TZorr/FMBox/releases) and run it; choose AU, VST3 or both - they go into `/Library/Audio/Plug-Ins`. Apple Silicon, macOS
+26.5 or later. The installer is unsigned, so Gatekeeper refuses it at first:
+right-click it and choose Open, or allow it under System Settings › Privacy &
+Security.
 
 ## Sounds
 
@@ -70,3 +84,7 @@ Requires JUCE 9 at `~/JUCE`, CMake and Ninja; Apple Silicon, macOS 26.5 or later
 
 AGPLv3 - see [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 The DaisySP drum models in `Source/ThirdParty/DaisySP` are MIT.
+
+## Contact
+
+T'Zorr - <TZorr@gmx.de>
