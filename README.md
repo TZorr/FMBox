@@ -62,7 +62,7 @@ Each has its Level (the return). Switching the type crossfades over 30 ms.
 finite values at every knob corner, choke, retrigger, click, drive, velocity,
 the three sends), writes them to
 `build/sounds/*.wav`, round-trips the session state, checks the MIDI notes land
-sample-accurately and renders the panel to `build/shots/fmbox.png`.
+sample-accurately and renders the panel to `build/shots/fmbox.png` (and `fmbox-dark.png`).
 
 Requires JUCE 9 at `~/JUCE`, CMake and Ninja; Apple Silicon, macOS 26.5 or later.
 

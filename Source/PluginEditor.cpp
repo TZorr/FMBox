@@ -9,6 +9,22 @@
 
 namespace
 {
+    /** The panel's theme is the user's, not the session's: it lives in
+        ~/Library/Application Support/FMBox/FMBox.settings, shared by every
+        instance and every project, and never travels with a session. */
+    std::unique_ptr<juce::PropertiesFile> openSettings()
+    {
+        juce::PropertiesFile::Options options;
+        options.applicationName     = JucePlugin_Name;
+        options.filenameSuffix      = ".settings";
+        options.folderName          = JucePlugin_Name;
+        options.osxLibrarySubFolder = "Application Support";
+        options.getDefaultFile().getParentDirectory().createDirectory();
+        return std::make_unique<juce::PropertiesFile> (options);
+    }
+
+    constexpr const char* darkModeKey = "darkMode";
+
     constexpr int margin = 15, gap = 10;
     constexpr int columnWidth = 136, numColumns = FmParams::numSounds;
     constexpr int windowWidth = 2 * margin + numColumns * columnWidth + (numColumns - 1) * 6;
@@ -44,6 +60,14 @@ FMBoxEditor::FMBoxEditor (FMBoxProcessor& p)
 {
     using namespace FmParams;
     auto& state = fmProcessor.parameters;
+
+    // The saved theme first, so the first paint is already the right one.
+    Palette::setDark (openSettings()->getBoolValue (darkModeKey, false));
+    shownDark = Palette::dark;
+    darkButton.setToggleState (Palette::dark, juce::dontSendNotification);
+    darkButton.setTooltip ("Dark panel on / off");
+    darkButton.onClick = [this] { setDarkMode (darkButton.getToggleState()); };
+    addAndMakeVisible (darkButton);
 
     addAndMakeVisible (display);
 
@@ -152,9 +176,32 @@ void FMBoxEditor::refreshFx()
     }
 }
 
+void FMBoxEditor::setDarkMode (bool shouldBeDark)
+{
+    Palette::setDark (shouldBeDark);
+
+    if (auto settings = openSettings())
+    {
+        settings->setValue (darkModeKey, shouldBeDark);
+        settings->saveIfNeeded();
+    }
+
+    shownDark = shouldBeDark;
+    darkButton.setToggleState (shouldBeDark, juce::dontSendNotification);
+    repaint();
+}
+
 void FMBoxEditor::timerCallback()
 {
     fmProcessor.applyLearnedNote();
+
+    // Another FMBox window may have switched the theme: it is process-wide.
+    if (shownDark != Palette::dark)
+    {
+        shownDark = Palette::dark;
+        darkButton.setToggleState (shownDark, juce::dontSendNotification);
+        repaint();
+    }
 
     for (auto& column : columns)
         column.pad->updateFlash();
@@ -239,6 +286,10 @@ void FMBoxEditor::resized()
     {
         auto top = area.removeFromTop (topRowHeight);
         wordmarkArea = top.removeFromLeft (190);
+
+        // Under the wordmark and its subtitle, which end 72 points down.
+        darkButton.setBounds (wordmarkArea.getX(), wordmarkArea.getY() + 76, 52, 17);
+
         outputArea = top.removeFromRight (120);
         top.removeFromRight (gap);
         display.setBounds (top);

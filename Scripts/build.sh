@@ -29,4 +29,4 @@ echo
 echo
 echo "Built:"
 ls -d "$BUILD_DIR/FMBox_artefacts/Release/"*/*.{vst3,component,app} 2>/dev/null || true
-echo "Panel: $BUILD_DIR/shots/fmbox.png"
+echo "Panel: $BUILD_DIR/shots/fmbox.png (and fmbox-dark.png)"
