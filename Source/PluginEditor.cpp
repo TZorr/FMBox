@@ -56,7 +56,7 @@ namespace
 }
 
 FMBoxEditor::FMBoxEditor (FMBoxProcessor& p)
-    : AudioProcessorEditor (p), fmProcessor (p), display (p)
+    : AudioProcessorEditor (p), fmProcessor (p), display (p), presetButton (p)
 {
     using namespace FmParams;
     auto& state = fmProcessor.parameters;
@@ -68,6 +68,7 @@ FMBoxEditor::FMBoxEditor (FMBoxProcessor& p)
     darkButton.setTooltip ("Dark panel on / off");
     darkButton.onClick = [this] { setDarkMode (darkButton.getToggleState()); };
     addAndMakeVisible (darkButton);
+    addAndMakeVisible (presetButton);
 
     addAndMakeVisible (display);
 
@@ -289,6 +290,7 @@ void FMBoxEditor::resized()
 
         // Under the wordmark and its subtitle, which end 72 points down.
         darkButton.setBounds (wordmarkArea.getX(), wordmarkArea.getY() + 76, 52, 17);
+        presetButton.setBounds (darkButton.getRight() + 6, darkButton.getY(), 64, 17);
 
         outputArea = top.removeFromRight (120);
         top.removeFromRight (gap);

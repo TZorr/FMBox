@@ -20,6 +20,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "PluginEditor.h"
+#include "Engine/AuPreset.h"
 #include "UI/Palette.h"
 #include "PluginProcessor.h"
 
@@ -201,6 +202,42 @@ namespace
     }
 }
 
+namespace
+{
+    /** The preset menu's .aupreset: saves and loads the knobs, names this
+        plugin, and refuses another plugin's preset. */
+    void checkPresets()
+    {
+        const auto folder = juce::File::createTempFile ("presets");
+        folder.createDirectory();
+        const auto file = folder.getChildFile ("Test.aupreset");
+
+        FMBoxProcessor original;
+        setParam (original, FmParams::soundId (FmParams::sd, FmParams::Snd::tune), 260.0f);
+        check (PresetButton::save (original, file).wasOk(), "a preset saves");
+
+        const auto text = file.loadFileAsString();
+        const auto subtypeEntry = "<integer>" + juce::String (AuPreset::subtype) + "</integer>";
+        check (text.contains ("<key>jucePluginState</key>") && text.contains (subtypeEntry)
+                   && AuPreset::subtype == AuPreset::fourCC ("Fmbx") && AuPreset::type == AuPreset::fourCC ("aumu"),
+               "the preset is an .aupreset naming aumu/Fmbx");
+
+        FMBoxProcessor loaded;
+        check (PresetButton::load (loaded, file).wasOk(), "a preset loads");
+        check (std::abs (getParam (loaded, FmParams::soundId (FmParams::sd, FmParams::Snd::tune)) - 260.0f) < 0.5f,
+               "a preset brings back the knobs", juce::String (getParam (loaded, FmParams::soundId (FmParams::sd, FmParams::Snd::tune))));
+
+        const auto foreign = folder.getChildFile ("Foreign.aupreset");
+        foreign.replaceWithText (text.replace (subtypeEntry, "<integer>1</integer>"));
+        FMBoxProcessor untouched;
+        const auto before = getParam (untouched, FmParams::soundId (FmParams::sd, FmParams::Snd::tune));
+        check (PresetButton::load (untouched, foreign).failed() && getParam (untouched, FmParams::soundId (FmParams::sd, FmParams::Snd::tune)) == before,
+               "another plugin's preset is refused");
+
+        folder.deleteRecursively();
+    }
+}
+
 int main (int argc, char** argv)
 {
     const juce::ScopedJuceInitialiser_GUI juceInitialiser;
@@ -216,6 +253,8 @@ int main (int argc, char** argv)
 
     std::printf ("Session round trip...\n");
     checkStateRoundTrip();
+    std::printf ("Presets...\n");
+    checkPresets();
     std::printf ("MIDI notes and pads...\n");
     checkMidi();
     std::printf ("Learn...\n");

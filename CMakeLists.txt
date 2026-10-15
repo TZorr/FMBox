@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 # A version bump makes Logic re-validate the AU; bump it with every change
 # that should reach the host.
-project(FMBox VERSION 0.3.1)
+project(FMBox VERSION 0.4.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -84,9 +84,13 @@ set(FMBOX_UI_SOURCES
     Source/UI/ChoiceButtons.cpp
     Source/UI/Display.cpp
     Source/UI/Knob.cpp
-    Source/UI/PadButton.cpp)
+    Source/UI/PadButton.cpp
+    Source/UI/PresetButton.cpp)
 
+# The preset file names the plugin by its JucePlugin_* codes, so it builds
+# only where juce_add_plugin's definitions are: here, not in FMBoxCheck.
 target_sources(FMBox PRIVATE
+    Source/Engine/AuPreset.cpp
     ${FMBOX_CORE_SOURCES}
     ${FMBOX_UI_SOURCES}
     Source/PluginProcessor.cpp

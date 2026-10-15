@@ -25,6 +25,7 @@
 #include "UI/FlatToggle.h"
 #include "UI/Knob.h"
 #include "UI/PadButton.h"
+#include "UI/PresetButton.h"
 
 class FMBoxEditor : public juce::AudioProcessorEditor,
                     private juce::Timer
@@ -63,6 +64,7 @@ private:
     std::array<FxSection, FmParams::Fx::numSlots> fx;
     Knob masterKnob { "Master" };
     FlatToggle darkButton { "Dark" };
+    PresetButton presetButton;
     bool shownDark = false;
 
     juce::Rectangle<int> wordmarkArea, outputArea, footerArea;
