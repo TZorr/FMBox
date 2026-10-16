@@ -5,7 +5,7 @@
 //  Eight FM drums on the GM drum notes, three send effects, one stereo output.
 //
 //  The state is the parameter tree and nothing else: no samples, no files, no
-//  kit format. A session or an .aupreset restores the kit completely.
+//  kit format. A session or an .fmbox preset restores the kit completely.
 //
 
 #pragma once

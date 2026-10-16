@@ -68,7 +68,7 @@ Each has its Level (the return). Switching the type crossfades over 30 ms.
 
 ## Presets
 
-**PRESETS** beside the Dark switch opens the plugin's own preset menu. It lists `~/Library/Audio/Presets/T'Zorr/FMBox/`, the folder Logic lists too, and each subfolder becomes a submenu. It also has Save Preset…, Load Preset… and Show in Finder. Presets are .aupreset files, so a preset saved in the plugin shows up in Logic's menu and the other way round. In VST3 hosts such as Bitwig this menu is the only way to load and save presets.
+**PRESETS** beside the Dark switch opens the plugin's own preset menu. It lists `~/Library/Audio/Presets/T'Zorr/FMBox/`, and each subfolder becomes a submenu. It also has Save Preset…, Load Preset… and Show in Finder. Presets are `.fmbox` files: plain XML that names the plugin and holds its settings, readable in any text editor. Logic keeps its own `.aupreset` settings in its own menu; the two do not mix. In VST3 hosts such as Bitwig this menu is the only way to load and save presets.
 
 ## Build
 

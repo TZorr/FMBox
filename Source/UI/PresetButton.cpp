@@ -4,7 +4,7 @@
 //
 
 #include "PresetButton.h"
-#include "../Engine/AuPreset.h"
+#include "../Engine/PresetFile.h"
 
 namespace
 {
@@ -33,7 +33,7 @@ namespace
                 menu.addSubMenu (sub.getFileName(), subMenu, true, nullptr, current.isAChildOf (sub));
         }
 
-        for (const auto& file : sortedChildren (folder, juce::File::findFiles, juce::String ("*") + AuPreset::extension))
+        for (const auto& file : sortedChildren (folder, juce::File::findFiles, juce::String ("*") + PresetFile::extension))
         {
             files.add (file);
             menu.addItem (firstPresetId + files.size() - 1, file.getFileNameWithoutExtension(), true, file == current);
@@ -70,10 +70,15 @@ juce::Result PresetButton::save (juce::AudioProcessor& p, const juce::File& file
     juce::MemoryBlock state;
     p.getStateInformation (state);
 
+    const auto text = PresetFile::write (state, file.getFileNameWithoutExtension());
+
+    if (text.isEmpty())
+        return juce::Result::fail ("The plugin's settings could not be read.");
+
     // replaceWithText writes a temporary file and moves it into place.
     // createOutputStream would append to a preset already there.
     if (! file.getParentDirectory().createDirectory()
-        || ! file.replaceWithText (AuPreset::write (state, file.getFileNameWithoutExtension()), false, false, "\n"))
+        || ! file.replaceWithText (text, false, false, "\n"))
         return juce::Result::fail ("Could not write " + file.getFullPathName());
 
     return juce::Result::ok();
@@ -86,7 +91,7 @@ juce::Result PresetButton::load (juce::AudioProcessor& p, const juce::File& file
     if (! file.loadFileAsData (block))
         return juce::Result::fail ("Could not read " + file.getFullPathName());
 
-    const auto preset = AuPreset::read (block.toString());
+    const auto preset = PresetFile::read (block.toString());
 
     if (! preset.ok())
         return juce::Result::fail (preset.error);
@@ -104,7 +109,7 @@ void PresetButton::clicked()
     menu.addItem (revealId, "Show in Finder");
     menu.addSeparator();
 
-    // Read afresh each time: presets saved by Logic or another instance appear
+    // Read afresh each time: presets saved by another instance appear
     // without reopening the plugin.
     auto files = std::make_shared<juce::Array<juce::File>>();
     addFolder (menu, folder(), *files, lastFile);
@@ -133,8 +138,8 @@ void PresetButton::clicked()
 void PresetButton::choose (bool saving)
 {
     // A plain name, never one with a dot in it: the macOS save panel selects
-    // only the part before the last dot, so "Kit.aupreset" would survive every
-    // rename as "<new name>.aupreset".
+    // only the part before the last dot, so "Kit" + extension would survive
+    // every rename as "<new name>" + extension.
     auto name = currentName != nullptr ? currentName() : lastFile.getFileNameWithoutExtension();
     name = juce::File::createLegalFileName (name.isNotEmpty() ? name : juce::String ("Preset"));
 
@@ -142,7 +147,7 @@ void PresetButton::choose (bool saving)
                               : (lastFile.existsAsFile() ? lastFile.getParentDirectory() : folder());
 
     chooser = std::make_unique<juce::FileChooser> (saving ? "Save Preset" : "Load Preset", start,
-                                                   juce::String ("*") + AuPreset::extension);
+                                                   juce::String ("*") + PresetFile::extension);
 
     const auto flags = saving ? juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
                                     | juce::FileBrowserComponent::warnAboutOverwriting
@@ -156,7 +161,7 @@ void PresetButton::choose (bool saving)
             return;
 
         if (saving)
-            safe->saveFile (file.withFileExtension (AuPreset::extension));
+            safe->saveFile (file.withFileExtension (PresetFile::extension));
         else
             safe->loadFile (file);
     });

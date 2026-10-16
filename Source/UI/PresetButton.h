@@ -3,14 +3,12 @@
 //  FMBox (from Tonbox)
 //
 //  The plugin's own preset menu, beside the Dark switch. Logic has a preset
-//  menu of its own for every AU; a VST3 host such as Bitwig has none it can
-//  fill from .aupreset files, so without this the plugin could neither load
-//  nor save a setting there.
+//  menu of its own for every AU; a VST3 host such as Bitwig has none, so
+//  without this the plugin could neither load nor save a setting there.
 //
-//  The menu lists ~/Library/Audio/Presets/<company>/<plugin>/ - the folder
-//  Logic lists - with each subfolder as a submenu, and saves into it as
-//  .aupreset (Engine/AuPreset.h). A preset saved here shows up in Logic and the
-//  other way round.
+//  The menu lists ~/Library/Audio/Presets/<company>/<plugin>/ with each
+//  subfolder as a submenu, and saves into it in the plugin's own file type
+//  (Engine/PresetFile.h).
 //
 
 #pragma once
@@ -34,10 +32,10 @@ public:
     /** ~/Library/Audio/Presets/<company>/<plugin>/, created if it is missing. */
     static juce::File folder();
 
-    /** The plugin's state as an .aupreset named after the file. */
+    /** The plugin's state as a preset file named after the file. */
     static juce::Result save (juce::AudioProcessor&, const juce::File&);
 
-    /** An .aupreset of this plugin into its state. */
+    /** A preset file of this plugin into its state. */
     static juce::Result load (juce::AudioProcessor&, const juce::File&);
 
 private:

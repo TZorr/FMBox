@@ -20,7 +20,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "PluginEditor.h"
-#include "Engine/AuPreset.h"
+#include "Engine/PresetFile.h"
 #include "UI/Palette.h"
 #include "PluginProcessor.h"
 
@@ -204,35 +204,41 @@ namespace
 
 namespace
 {
-    /** The preset menu's .aupreset: saves and loads the knobs, names this
-        plugin, and refuses another plugin's preset. */
+    /** The preset menu's own file: saves and loads the knobs, is readable XML
+        naming this plugin, and refuses another plugin's preset and an
+        .aupreset. */
     void checkPresets()
     {
         const auto folder = juce::File::createTempFile ("presets");
         folder.createDirectory();
-        const auto file = folder.getChildFile ("Test.aupreset");
+        const auto file = folder.getChildFile (juce::String ("Test") + PresetFile::extension);
 
         FMBoxProcessor original;
         setParam (original, FmParams::soundId (FmParams::sd, FmParams::Snd::tune), 260.0f);
         check (PresetButton::save (original, file).wasOk(), "a preset saves");
 
         const auto text = file.loadFileAsString();
-        const auto subtypeEntry = "<integer>" + juce::String (AuPreset::subtype) + "</integer>";
-        check (text.contains ("<key>jucePluginState</key>") && text.contains (subtypeEntry)
-                   && AuPreset::subtype == AuPreset::fourCC ("Fmbx") && AuPreset::type == AuPreset::fourCC ("aumu"),
-               "the preset is an .aupreset naming aumu/Fmbx");
+        const auto xml = juce::XmlDocument::parse (text);
+        check (xml != nullptr && xml->hasTagName ("TZorrPreset") && xml->getStringAttribute ("plugin") == "Fmbx"
+                   && xml->getNumChildElements() == 1,
+               "the preset is readable XML naming Fmbx", text.substring (0, 120));
 
         FMBoxProcessor loaded;
         check (PresetButton::load (loaded, file).wasOk(), "a preset loads");
         check (std::abs (getParam (loaded, FmParams::soundId (FmParams::sd, FmParams::Snd::tune)) - 260.0f) < 0.5f,
                "a preset brings back the knobs", juce::String (getParam (loaded, FmParams::soundId (FmParams::sd, FmParams::Snd::tune))));
 
-        const auto foreign = folder.getChildFile ("Foreign.aupreset");
-        foreign.replaceWithText (text.replace (subtypeEntry, "<integer>1</integer>"));
+        const auto foreign = folder.getChildFile (juce::String ("Foreign") + PresetFile::extension);
+        foreign.replaceWithText (text.replace ("plugin=\"Fmbx\"", "plugin=\"Tnbx\""));
         FMBoxProcessor untouched;
         const auto before = getParam (untouched, FmParams::soundId (FmParams::sd, FmParams::Snd::tune));
         check (PresetButton::load (untouched, foreign).failed() && getParam (untouched, FmParams::soundId (FmParams::sd, FmParams::Snd::tune)) == before,
                "another plugin's preset is refused");
+
+        const auto auPreset = folder.getChildFile ("Logic.aupreset");
+        auPreset.replaceWithText ("<?xml version=\"1.0\"?><plist version=\"1.0\"><dict/></plist>");
+        check (PresetButton::load (untouched, auPreset).failed() && getParam (untouched, FmParams::soundId (FmParams::sd, FmParams::Snd::tune)) == before,
+               "an .aupreset is refused");
 
         folder.deleteRecursively();
     }
