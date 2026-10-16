@@ -15,7 +15,7 @@ not the session's - every FMBox window and project opens the way you left it.
 
 ## Install
 
-Download `FMBox.0.3.1.pkg` from
+Download `FMBox.0.5.0.pkg` from
 [Releases](https://github.com/TZorr/FMBox/releases) and run it; choose AU, VST3 or both - they go into `/Library/Audio/Plug-Ins`. Apple Silicon, macOS
 26.5 or later. The installer is unsigned, so Gatekeeper refuses it at first:
 right-click it and choose Open, or allow it under System Settings › Privacy &
