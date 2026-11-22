@@ -4,7 +4,7 @@ An eight-sound FM drum synth for macOS - AU (aumu/Fmbx/Tzor), VST3 and a
 standalone app, built with JUCE 9. Twelve knobs per sound, Kitbox's three send
 effects and a master level - every knob on screen at once.
 
-Family: [Kitbox](https://github.com/TZorr/Kitbox) (16-pad drum sampler), [Rackbox](https://github.com/TZorr/Rackbox) (four-slot multi-effect), [Rackbox Plus](https://github.com/TZorr/RackboxPlus) (the same rack, eight knobs per effect), [Chordbox](https://github.com/TZorr/Chordbox) (16-pad chord generator), [Transmute](https://github.com/TZorr/Transmute) (drum resynthesis), [Clearbox](https://github.com/TZorr/Clearbox) (target-curve dynamic EQ).
+Family: [Kitbox](https://github.com/TZorr/Kitbox) (16-pad drum sampler), [Rackbox](https://github.com/TZorr/Rackbox) (four-slot multi-effect), [Rackbox Plus](https://github.com/TZorr/RackboxPlus) (the same rack, eight knobs per effect), [Chordbox](https://github.com/TZorr/Chordbox) (16-pad chord generator), [Transmute](https://github.com/TZorr/Transmute) (drum resynthesis), [Tonbox](https://github.com/TZorr/Tonbox) (eight-channel drum synth), [Clearbox](https://github.com/TZorr/Clearbox) (target-curve dynamic EQ).
 
 <img src="screenshot.png" width="700" alt="FMBox in Logic Pro">
 
